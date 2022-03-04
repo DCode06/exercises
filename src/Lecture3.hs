@@ -24,6 +24,7 @@ module Lecture3
     , toShortString
     , next
     , daysTo
+    , findSucc
 
     , Gold (..)
     , Reward (..)
@@ -34,16 +35,11 @@ module Lecture3
     , apply
     ) where
 
--- VVV If you need to import libraries, do it after this line ... VVV
-
--- ^^^ and before this line. Otherwise the test suite might fail  ^^^
 
 -- $setup
--- >>> import Data.Semigroup
+import Data.Semigroup
+import Data.List
 
-{- | Let's define a simple enumeration data type for representing days
-of the week.
--}
 data Weekday
     = Monday
     | Tuesday
@@ -52,201 +48,101 @@ data Weekday
     | Friday
     | Saturday
     | Sunday
-    deriving (Show, Eq)
+    deriving (Show, Eq, Enum, Bounded)
 
-{- | Write a function that will display only the first three letters
-of a weekday.
+toShortString:: Weekday -> String
+toShortString day = take 3 $ show day
 
->>> toShortString Monday
-"Mon"
--}
-toShortString = error "TODO"
+next :: Weekday -> Weekday
+next w = findSucc w
 
-{- | Write a function that returns next day of the week, following the
-given day.
+daysTo::Weekday -> Weekday -> Int
+daysTo w1 w2 = foldr (\_ y -> y+1) 0 (dayList [w1] w2) 
+               where dayList (l1:ls) l2 = if findSucc l1 == l2 then (l1:ls) else dayList((findSucc l1):(l1:ls)) l2
 
->>> next Monday
-Tuesday
-
-♫ NOTE: Implement this function without pattern matching on every
-  constructor! Use standard typeclasses instead (you may need to derive
-  them first).
-
-🕯 HINT: Check 'Enum' and 'Bounded' typeclasses.
-
-🆙 Bonus challenge 1: Could you implement this function in a such way
-  that it'll still work even if you change constructor names and their
-  order in the 'Weekday' type?
-
-🆙 Bonus challenge 2: Now, could you improve the implementation so it
-  would work for **any** enumeration type in Haskell (e.g. 'Bool',
-  'Ordering') and not just 'Weekday'?
--}
-next = error "TODO"
-
-{- | Implement a function that calculates number of days from the first
-weekday to the second.
-
->>> daysTo Monday Tuesday
-1
->>> daysTo Friday Wednesday
-5
--}
-daysTo = error "TODO"
-
-{-
-
-In the following block of tasks you need to implement 'Semigroup'
-instances for all types and 'Monoid' instances if it's possible to
-have a lawful 'Monoid' instance.
-
--}
+findSucc:: Weekday -> Weekday
+findSucc w1
+    | w1 == maxBound = minBound
+	| otherwise = succ w1
 
 newtype Gold = Gold
     { unGold :: Int
     } deriving (Show, Eq)
 
--- | Addition of gold coins.
 instance Semigroup Gold where
-
-
+    Gold x <> Gold y = Gold (x+y)
+	
 instance Monoid Gold where
+    mempty = Gold 0
 
-
-{- | A reward for completing a difficult quest says how much gold
-you'll receive and whether you'll get a special reward.
-
-If you combine multiple rewards, the final reward will contain a
-special prize if at least one of the rewards is special.
--}
 data Reward = Reward
     { rewardGold    :: Gold
     , rewardSpecial :: Bool
     } deriving (Show, Eq)
 
 instance Semigroup Reward where
-
+    Reward x s1 <> Reward y s2 = Reward (x <> y) (s1 || s2)
 
 instance Monoid Reward where
+    mempty = Reward (Gold 0) False
 
-
-{- | 'List1' is a list that contains at least one element.
--}
 data List1 a = List1 a [a]
     deriving (Show, Eq)
 
--- | This should be list append.
-instance Semigroup (List1 a) where
+instance Semigroup(List1 a) where
+    (List1 l1 a1)<> (List1 l2 a2)= List1 l1 (a1 ++[l2] ++ a2)
 
 
 {- | Does 'List1' have the 'Monoid' instance? If no then why?
 
 instance Monoid (List1 a) where
 -}
+--Listl cannot have a Monoid instance since it cannot have zero elements
 
-{- | When fighting a monster, you can either receive some treasure or
-don't.
--}
 data Treasure a
     = NoTreasure
     | SomeTreasure a
     deriving (Show, Eq)
 
-{- | When you append multiple treasures for fighting multiple
-monsters, you should get a combined treasure and not just the first
-(or last one).
+instance (Semigroup a) => Semigroup (Treasure a) where
+    NoTreasure <> SomeTreasure a = SomeTreasure a
+    NoTreasure <> NoTreasure = NoTreasure
+    SomeTreasure a <> NoTreasure = SomeTreasure a
+    SomeTreasure a1 <> SomeTreasure a2 = SomeTreasure (a1 <> a2)
 
-🕯 HINT: You may need to add additional constraints to this instance
-  declaration.
--}
-instance Semigroup (Treasure a) where
+instance (Semigroup a) => Monoid (Treasure a) where
+    mempty = NoTreasure
 
-
-instance Monoid (Treasure a) where
-
-
-{- | Abstractions are less helpful if we can't write functions that
-use them!
-
-Implement a polymorphic function that takes three elements and appends
-together only different elements.
-
->>> appendDiff3 [1] [3, 2] [0, 5]
-[1,3,2,0,5]
->>> appendDiff3 [4] [2, 2] [2, 2]
-[4,2,2]
->>> appendDiff3 [1 .. 5] [1 .. 5] [1 .. 5]
-[1,2,3,4,5]
->>> appendDiff3 (Product 2) (Product 3) (Product 3)
-Product {getProduct = 6}
-
--}
-appendDiff3 = error "TODO"
-
-{-
-
-In the next block of tasks, implement 'Foldable' instances for all
-types that can have such an instance.
-
-♫ NOTE: Implement both 'foldr' and 'foldMap' methods. On the one hand,
-  'Foldable' is a big typeclass but lets focus on its small part to get
-  the main idea. On the other hand, these two methods are quite
-  different so it's a good practice.
-
-🕯 HINT: Check kinds of types to see whether it's possible to implement
-  an instance of 'Foldable'.
-
-🕯 HINT: If you don't feel comfortable with kinds yet, alternatively
-  you can try uncommenting each instance one by one and see the GHC
-  error. The compiler will "kindly" tell you if it's impossible to have
-  such an instance.
-
-🕯 HINT: Write explicit type signature of methods using InstanceSigs
-  (already enabled in this module).
-
-♫ NOTE: Since the instances are commented, the tests are also commented.
-  To run tests for your instances, go to the "test/Test/Lecture3.hs" file
-  and uncomment all commented tests. But do this only after you
-  implement instances! No spoilers :)
--}
+appendDiff3:: Eq a => Semigroup a => Monoid a => a -> a-> a-> a
+appendDiff3 a1 a2 a3 = foldr mappend mempty $ nub [a1,a2,a3]
 
 -- instance Foldable Weekday where
+-- cannot implement Foldable instance for Weekday since expected kind is *-> * but Weekday has kind *
 -- instance Foldable Gold where
+-- cannot implement Foldable instance for Gold since expected kind is *-> * but Gold has kind *
 -- instance Foldable Reward where
--- instance Foldable List1 where
--- instance Foldable Treasure where
+-- cannot implement Foldable instance for Reward since expected kind is *-> * but Reward has kind *
+instance Foldable List1 where
+   foldMap f (List1 l1 l2) = (f l1) `mappend` (foldMap f l2)
 
-{-
-
-In the next block of tasks, implement 'Functor' instances for all
-types that can have such an instance.
-
-🕯 HINT: At this point, you already know which types can have 'Functor'
-  instance and which don't (the same types as for 'Foldable' in this
-  case). But comments still mention all types to avoid spoilers ;)
--}
+instance Foldable Treasure where
+    foldr f x NoTreasure = x
+    foldr f x (SomeTreasure a) = f a x
+    foldMap f (NoTreasure) = mempty
+    foldMap f (SomeTreasure a) = f a
 
 -- instance Functor Weekday where
+-- cannot implement Functor instance for Weekday since expected kind is *-> * but Weekday has kind *
 -- instance Functor Gold where
+-- cannot implement Functor instance for Gold since expected kind is *-> * but Gold has kind *
 -- instance Functor Reward where
--- instance Functor List1 where
--- instance Functor Treasure where
+-- cannot implement Functor instance for Reward since expected kind is *-> * but Reward has kind *
+instance Functor List1 where
+    fmap f (List1 a1 a2) = List1 (f a1) (map f a2)
 
-{- | Functions are first-class values in Haskell. This means that they
-can be even stored inside other data types as well!
+instance Functor Treasure where
+    fmap f NoTreasure = NoTreasure
+    fmap f (SomeTreasure a) = SomeTreasure (f a)
 
-Now, you have a function inside some 'Functor'. You're a given an
-element and you need to apply the function inside the 'Functor' to a
-given element.
-
->>> apply 5 (Just (+ 3))
-Just 8
->>> apply 5 Nothing
-Nothing
->>> apply [1 .. 10] (Just (drop 7))
-Just [8,9,10]
->>> apply 5 [(+ 3), (* 4), div 17]
-[8,20,3]
-
--}
-apply = error "TODO"
+apply :: (Functor f) => a -> f (a-> b) -> f b
+apply a = fmap (\f -> f a)
